@@ -22,8 +22,8 @@ WORKER_TOKEN = os.environ.get("WORKER_TOKEN", "")
 
 DATA_DIR   = Path(__file__).parent.parent / "data"
 DIRS = {
-    "json":   DATA_DIR / "json",
-    "txt":    DATA_DIR / "txt",
+    "json":   DATA_DIR / "loadpara_json",
+    "txt":    DATA_DIR / "loadpara_txt",
     "genary": DATA_DIR / "genary",
 }
 
