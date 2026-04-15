@@ -1,0 +1,41 @@
+name: Fetch daily (每日前一天資料)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: "pip" }
+
+      - run: pip install requests
+
+      - name: Fetch
+        run: python scripts/fetch_daily.py
+        env:
+          WORKER_URL:   ${{ secrets.WORKER_URL }}
+          WORKER_TOKEN: ${{ secrets.WORKER_TOKEN }}
+
+      - name: Commit and push
+        run: |
+          git add data/
+          if git diff --cached --quiet; then
+            echo "no new data"
+            exit 0
+          fi
+          TS=$(git diff --cached --name-only | grep -E 'data/(fueltype|areas)/' | head -1 | xargs basename | sed 's/\..*//')
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "daily: ${TS}"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
