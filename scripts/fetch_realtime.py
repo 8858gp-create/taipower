@@ -36,13 +36,22 @@ TARGETS = [
 # ── 時間解析 ──────────────────────────────────────────────────────────────────
 
 def parse_publish_time(text: str) -> str | None:
-    # 台電格式：115.04.15(三)16:40
+    # loadpara 格式：115.04.15(三)16:40
     m = re.search(r'(\d{3})\.(\d{2})\.(\d{2})[^\d]*(\d{2}):(\d{2})', text)
     if m:
         year, month, day, hour, minute = m.groups()
         ts = f"{int(year):03d}{month}{day}{hour}{minute}"
         log.info(f"publish_time：{ts}")
         return ts
+
+    # genary 格式：{"":"2026-04-15 17:30"
+    m = re.search(r'""\s*:\s*"(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})"', text)
+    if m:
+        year, month, day, hour, minute = m.groups()
+        ts = f"{int(year) - 1911:03d}{month}{day}{hour}{minute}"
+        log.info(f"publish_time：{ts}")
+        return ts
+
     log.warning("找不到 publish_time，用系統時間代替")
     now = datetime.now()
     return f"{now.year - 1911:03d}{now.month:02d}{now.day:02d}{now.hour:02d}{now.minute:02d}"
@@ -78,19 +87,14 @@ def run() -> bool:
     for d in DIRS.values():
         d.mkdir(parents=True, exist_ok=True)
 
-    any_ok  = False
-    shared_ts = None
+    any_ok = False
 
     for t in TARGETS:
         raw = fetch(t["key"])
         if raw is None:
             log.error(f"{t['key']} 失敗，跳過"); continue
 
-        ts = parse_publish_time(raw)
-        if shared_ts is None:
-            shared_ts = ts
-        else:
-            ts = shared_ts  # 三個檔共用同一時間戳
+        ts = parse_publish_time(raw)  # 每個檔用自己的時間戳
 
         out = DIRS[t["key"]] / f"{ts}.{t['ext']}"
         if out.exists() and out.read_text(encoding="utf-8") == raw:
