@@ -1,9 +1,7 @@
 name: Fetch Taipower loadpara
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"
-  workflow_dispatch:
+  workflow_dispatch:      # 只允許外部觸發（GAS 呼叫）
 
 permissions:
   contents: write
@@ -32,7 +30,7 @@ jobs:
         run: python scripts/fetch_loadpara.py
         env:
           WORKER_URL:   ${{ secrets.WORKER_URL }}
-          WORKER_TOKEN: ${{ secrets.WORKER_TOKEN }}   # 可選，Worker 不設 token 就留空
+          WORKER_TOKEN: ${{ secrets.WORKER_TOKEN }}
 
       - name: Check for new files
         id: check
@@ -45,7 +43,6 @@ jobs:
             NEW_FILE=$(git diff --cached --name-only | grep -E 'data/(json|txt)/[0-9]+' | head -1)
             TIMESTAMP=$(basename "$NEW_FILE" | sed 's/\..*//')
             echo "timestamp=$TIMESTAMP" >> "$GITHUB_OUTPUT"
-            echo "新資料：$TIMESTAMP"
           fi
 
       - name: Commit and push
@@ -57,7 +54,3 @@ jobs:
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Report failure
-        if: failure()
-        run: echo "::warning::Worker 中繼失敗，請確認 WORKER_URL secret 是否正確"
