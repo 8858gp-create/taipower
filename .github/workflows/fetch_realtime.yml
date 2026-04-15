@@ -32,10 +32,11 @@ jobs:
             echo "no new data"
             exit 0
           fi
-          TS=$(git diff --cached --name-only | grep -E 'data/(json|txt|genary)/' | head -1 | xargs basename | sed 's/\..*//')
+          TS=$(git diff --cached --name-only | grep -E 'data/(loadpara_json|loadpara_txt|genary)/' | head -1 | xargs basename | sed 's/\..*//')
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "realtime: ${TS}"
+          git pull --rebase
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
