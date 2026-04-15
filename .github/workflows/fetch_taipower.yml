@@ -1,0 +1,74 @@
+name: Fetch Taipower loadpara
+
+on:
+  schedule:
+    # 每 10 分鐘執行一次（GitHub Actions 最小粒度為 5 分鐘）
+    - cron: "*/10 * * * *"
+  workflow_dispatch:      # 允許手動觸發，方便測試
+
+permissions:
+  contents: write         # 允許 commit & push 回 repo
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # ── 1. 取出 repo ──────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # ── 2. 設定 Python ────────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # ── 3. 安裝相依套件 ───────────────────────────────────────────────────
+      - name: Install dependencies
+        run: pip install requests
+
+      # ── 4. 執行爬蟲 ──────────────────────────────────────────────────────
+      - name: Fetch loadpara data
+        id: fetch
+        run: |
+          python scripts/fetch_loadpara.py
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      # ── 5. 確認是否有新檔案 ───────────────────────────────────────────────
+      - name: Check for new files
+        id: check
+        run: |
+          git add data/
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "沒有新資料，略過 commit"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            # 取出本次新增的時間戳（從 git diff 中抓第一個）
+            NEW_FILE=$(git diff --cached --name-only | grep -E 'data/(json|txt)/[0-9]+' | head -1)
+            TIMESTAMP=$(basename "$NEW_FILE" | sed 's/\..*//')
+            echo "timestamp=$TIMESTAMP" >> "$GITHUB_OUTPUT"
+            echo "找到新資料：$TIMESTAMP"
+          fi
+
+      # ── 6. Commit & Push ─────────────────────────────────────────────────
+      - name: Commit and push
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "data: ${{ steps.check.outputs.timestamp }}"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 7. 失敗時留下 annotation（方便 GitHub UI 中看到） ─────────────────
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "::warning::台電資料擷取失敗，可能是被擋或網路逾時，下次排程自動重試"
