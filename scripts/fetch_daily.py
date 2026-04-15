@@ -21,8 +21,8 @@ WORKER_TOKEN = os.environ.get("WORKER_TOKEN", "")
 
 DATA_DIR     = Path(__file__).parent.parent / "data"
 DIRS = {
-    "fueltype": DATA_DIR / "fueltype",
-    "areas":    DATA_DIR / "areas",
+    "fueltype": DATA_DIR / "loadfueltype",
+    "areas":    DATA_DIR / "loadareas",
 }
 
 TARGETS = [
