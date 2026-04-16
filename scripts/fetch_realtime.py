@@ -22,15 +22,17 @@ WORKER_TOKEN = os.environ.get("WORKER_TOKEN", "")
 
 DATA_DIR   = Path(__file__).parent.parent / "data"
 DIRS = {
-    "json":   DATA_DIR / "loadpara_json",
-    "txt":    DATA_DIR / "loadpara_txt",
-    "genary": DATA_DIR / "genary",
+    "json":     DATA_DIR / "loadpara_json",
+    "txt":      DATA_DIR / "loadpara_txt",
+    "genary":   DATA_DIR / "genary",
+    "areaperc": DATA_DIR / "genloadareaperc",
 }
 
 TARGETS = [
-    {"key": "json",   "ext": "json"},
-    {"key": "txt",    "ext": "txt"},
-    {"key": "genary", "ext": "txt"},
+    {"key": "json",     "ext": "json"},
+    {"key": "txt",      "ext": "txt"},
+    {"key": "genary",   "ext": "txt"},
+    {"key": "areaperc", "ext": "csv"},
 ]
 
 # ── 時間解析 ──────────────────────────────────────────────────────────────────
@@ -52,9 +54,16 @@ def parse_publish_time(text: str) -> str | None:
         log.info(f"publish_time：{ts}")
         return ts
 
-    log.warning("找不到 publish_time，用系統時間代替")
-    now = datetime.now()
-    return f"{now.year - 1911:03d}{now.month:02d}{now.day:02d}{now.hour:02d}{now.minute:02d}"
+    # areaperc 格式：第一欄 2026-04-16 10:50,...
+    m = re.search(r'^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})', text)
+    if m:
+        year, month, day, hour, minute = m.groups()
+        ts = f"{int(year) - 1911:03d}{month}{day}{hour}{minute}"
+        log.info(f"publish_time：{ts}")
+        return ts
+
+    log.error("找不到 publish_time，略過此檔案")
+    return None
 
 # ── 下載 ──────────────────────────────────────────────────────────────────────
 
@@ -95,6 +104,8 @@ def run() -> bool:
             log.error(f"{t['key']} 失敗，跳過"); continue
 
         ts = parse_publish_time(raw)  # 每個檔用自己的時間戳
+        if ts is None:
+            log.error(f"{t['key']} 找不到 publish_time，略過，不存檔"); continue
 
         out = DIRS[t["key"]] / f"{ts}.{t['ext']}"
         if out.exists() and out.read_text(encoding="utf-8") == raw:
