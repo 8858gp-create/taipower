@@ -49,7 +49,7 @@ jobs:
           python-version: '3.12'
 
       - name: 預覽或清理（核對固定備份後才允許刪除）
-        run: python scripts/cleanup_backed_up_data.py
+        run: python cleanup_backed_up_data.py
         env:
           CLEANUP_MODE: ${{ inputs.mode }}
           BACKUP_CONFIRMED: ${{ inputs.backup_confirmed }}
