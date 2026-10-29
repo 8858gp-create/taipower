@@ -1,0 +1,65 @@
+name: 手動清理已備份舊資料（截至2026-09-30）
+run-name: 歷史資料清理 / ${{ inputs.mode }} / @${{ github.actor }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: preview只預覽；delete才會清理2026年9月底以前的已備份資料
+        type: choice
+        required: true
+        default: preview
+        options:
+          - preview
+          - delete
+      backup_confirmed:
+        description: 我已保存並確認2026-09-30備份ZIP可用（57,548個檔案）
+        type: boolean
+        required: true
+        default: false
+      confirmation:
+        description: 刪除時填入 DELETE 20260930；預覽留白
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: manual-history-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.repository == '8858gp-create/taipower' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: |
+            scripts
+            .github
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 預覽或清理（核對固定備份後才允許刪除）
+        run: python scripts/cleanup_backed_up_data.py
+        env:
+          CLEANUP_MODE: ${{ inputs.mode }}
+          BACKUP_CONFIRMED: ${{ inputs.backup_confirmed }}
+          CONFIRMATION_TEXT: ${{ inputs.confirmation }}
+
+      - name: 保留本次清理清單7天
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanup-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/taipower-cleanup-reports/
+          retention-days: 7
+          if-no-files-found: ignore
